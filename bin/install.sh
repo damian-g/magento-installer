@@ -27,8 +27,8 @@ if [ ! -f "$MAGENTO_ROOT/app/etc/local.xml" ]; then
 
     # Wait to allow database container fully start.
     # Sadly docker-compose don't support container dependencies yet
-    echo "Wait 60 seconds ..."
-    sleep 60
+    echo "Wait 5 minutes ..."
+    sleep 300
     echo "Wait is over!"
 
     echo "Magerun: Installing database"
