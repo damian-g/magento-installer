@@ -25,20 +25,21 @@ if [ ! -f "$MAGENTO_ROOT/app/etc/local.xml" ]; then
     echo "Overriding Magento Configuration"
     cp -v /etc/local.xml $MAGENTO_ROOT/app/etc/local.xml
 
-    # Wait to allow database container fully start.
-    # Sadly docker-compose don't support container dependencies yet
-    echo "Wait 5 minutes ..."
-    sleep 300
-    echo "Wait is over!"
+    until mysql -h "$MYSQL_HOST" -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" -e ";" ; do
+           echo "Database has not been opened yet, trying to reconnect in 10 seconds"
 
-    echo "Magerun: Installing database"
+           sleep 10
+    done
+
+    echo "Database is up and ready"
+
+    echo "Magerun: Importing database"
     magerun --skip-root-check --root-dir="$MAGENTO_ROOT" db:create
     magerun --skip-root-check --root-dir="$MAGENTO_ROOT" db:import --compression="gzip" $databaseFilePath
 
-    echo "Magerun: Delete admin user if exist"
+    echo "Magerun: Delete all admin users"
     magerun --skip-root-check --root-dir="$MAGENTO_ROOT" \
-            admin:user:delete \
-            "${ADMIN_USERNAME}" -f
+            db:query 'SET FOREIGN_KEY_CHECKS = 0; TRUNCATE TABLE admin_user; TRUNCATE TABLE api2_acl_user; SET FOREIGN_KEY_CHECKS = 1;'
 
     echo "Magerun: Create admin user"
     magerun --skip-root-check --root-dir="$MAGENTO_ROOT" \
@@ -67,10 +68,6 @@ if [ ! -f "$MAGENTO_ROOT/app/etc/local.xml" ]; then
     echo "Magerun: Add Store Code to Urls"
     magerun --skip-root-check --root-dir="$MAGENTO_ROOT" config:delete --all web/url/use_store
     magerun --skip-root-check --root-dir="$MAGENTO_ROOT" config:set web/url/use_store 1
-
-    echo "Magerun: Use English"
-    magerun --skip-root-check --root-dir="$MAGENTO_ROOT" config:delete --all general/locale/code
-    magerun --skip-root-check --root-dir="$MAGENTO_ROOT" config:set general/locale/code en_GB
 
     echo "Magerun: Reindex"
     magerun --skip-root-check --root-dir="$MAGENTO_ROOT" index:reindex:all
